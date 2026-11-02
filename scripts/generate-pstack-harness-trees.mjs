@@ -11,6 +11,8 @@ const SKILLS = join(PSTACK, "skills");
 const OUT = join(ROOT, "harness", "pstack");
 const TREE = "claude-code";
 const ADAPTER = "docs/harness/claude-code.md";
+// Every adapter must map every Cursor name a skill uses. Only the Claude Code one ships in the generated tree.
+const ADAPTERS = { "Claude Code": ADAPTER, "prime-agent": "docs/harness/prime-agent.md" };
 const GUIDE = "docs/guide";
 const MANIFESTS = ["plugin.json", ".claude-plugin/plugin.json"];
 const COMMAND = "node scripts/generate-pstack-harness-trees.mjs";
@@ -96,9 +98,11 @@ for (const [skill, { usesCursorNames, wrap }] of classes) {
   if (name !== skill) problems.push(`skills/${skill}/SKILL.md has name ${JSON.stringify(name ?? "")}, not its folder name ${skill}`);
   if (!SKILL_NAME.test(skill) || skill.length > 64) problems.push(`skills/${skill} is not lowercase words joined by hyphens, at most 64 characters`);
 }
-const adapter = readFileSync(join(PSTACK, ADAPTER), "utf8");
-for (const [key, using] of users) {
-  if (!adapter.includes(key)) problems.push(`Claude Code adapter has no row for ${key}, used by ${using.join(", ")}`);
+for (const [harness, path] of Object.entries(ADAPTERS)) {
+  const adapter = readFileSync(join(PSTACK, path), "utf8");
+  for (const [key, using] of users) {
+    if (!adapter.includes(key)) problems.push(`${harness} adapter has no row for ${key}, used by ${using.join(", ")}`);
+  }
 }
 for (const problem of problems) console.log(`FAIL ${problem}`);
 if (problems.length > 0) process.exit(1);

@@ -31,6 +31,8 @@ claude code prefixes plugin commands and agents, so `/poteto-mode` is `/pstack:p
 
 claude code installs a generated copy of pstack, including this readme and the guide, from [`harness/pstack/`](https://github.com/cursor/plugins/tree/main/harness/pstack) at the repository root. after you change pstack, run `node scripts/generate-pstack-harness-trees.mjs` from the repository root and commit the result. ci fails while the generated copy is out of date.
 
+in prime-agent, pstack runs from a checkout. the [prime-agent adapter](https://github.com/cursor/plugins/blob/main/pstack/docs/harness/prime-agent.md) has the install steps and maps every cursor name.
+
 ## get started
 
 two steps:
