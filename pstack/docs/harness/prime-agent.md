@@ -6,7 +6,7 @@ pstack skills use Cursor names. In [prime-agent](https://github.com/PrimeIntelle
 
 prime-agent has no plugin installer, so pstack runs from a checkout.
 
-1. Clone this repository. A sparse checkout of `pstack` is enough: `git clone --filter=blob:none --sparse https://github.com/cursor/plugins ~/.prime/agent/vendor/cursor-plugins`, then `git -C ~/.prime/agent/vendor/cursor-plugins sparse-checkout set pstack`.
+1. Clone the repository and branch you intend to run. For this fork: `git clone --filter=blob:none --sparse --branch pstack-prime-agent-adapter https://github.com/technicalpickles/cursor-plugins.git ~/.prime/agent/vendor/cursor-plugins`, then `git -C ~/.prime/agent/vendor/cursor-plugins sparse-checkout set pstack`. For upstream, use `https://github.com/cursor/plugins` and its default branch once it includes this adapter. An existing checkout or worktree also works; set `<pstack>` to its `pstack/` folder. Check `git remote -v` and `git branch --show-current` in that checkout before linking.
 2. Link each `<pstack>/skills/<name>` folder into `~/.prime/agent/skills/<name>`. Every skill but `setup-pstack` sets `disable-model-invocation`, so they stay out of the system prompt and run as `/skill:<name>`, such as `/skill:poteto-mode`.
 3. Add a line to `~/.prime/agent/AGENTS.md`, which prime-agent loads into every session: "pstack lives at `<pstack>`. Before you follow a pstack skill, read `<pstack>/docs/harness/prime-agent.md`." Write the real path.
 4. Run `/skill:setup-pstack` to write the model rule.
@@ -40,11 +40,18 @@ Update with `git pull` in the checkout, then link any new skill folders.
 
 ## Models
 
+Before every pstack spawn, including ad-hoc helpers, critics, experiments, and delegates of delegates:
+
+1. Read `~/.prime/agent/pstack-models.md` and resolve the role before searching the catalog. Use the calling skill's role; otherwise use `swarm workers` for code or experiments, `judgment and prose` for critics or reviews, and `hardest tasks` for the hardest changes. Pass the resolved selector as `model` and its effort as `thinking`. Aliases omit both. Include this adapter and the role in delegate briefs so nested spawns follow the same policy.
+2. Keep the configured model, adjusting only reasoning per poteto-mode. For a requested model comparison, name each arm explicitly before launching. Announce any other model substitution and its reason before spawning; catalog order is not a reason to change a role's model.
+3. Validate a real selector with an exact match in `await rlm.find_models(selector, limit=20)`. Search results are capped matches, not a newest-first ranking or a complete catalog. A full page does not establish that later versions are unavailable. When the user asks to update models, use targeted version queries or ask which version they want, then confirm the role changes through setup-pstack. Keep existing choices until confirmed.
+4. If a resolved selector is unavailable or a spawn rejects its reasoning level, report the failure and ask for a replacement model or effort. This overrides the skills' closest-model and parent-model fallbacks. Never silently downgrade a version or erase a panel's family diversity.
+
 | Cursor | prime-agent |
 | --- | --- |
 | `claude-<family>-<version>-<effort>[-fast]`, such as `claude-opus-5-5-xhigh` | `model="anthropic/claude-opus-5-5", thinking="xhigh"`. Drop `-fast`. `thinking` takes `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. |
 | `gpt-<version>-<effort>`, such as `gpt-5.5-xhigh` | `model="openai/gpt-5.5", thinking="xhigh"`. |
-| A `grok-*` slug | Use the selector `rlm.find_models("grok")` returns. When it returns none, use the role's line in `pstack-models.md`. Without one, omit `model` and say so. |
+| A `grok-*` slug | Use the configured role first. For an unconfigured default, discover and confirm an exact Grok selector. If none is available, ask for a replacement through setup-pstack. |
 | `auto` or `inherit-parent` | Omit `model` and `thinking`. |
 | The `pstack-models.mdc` rule, `~/.cursor/rules/pstack-models.mdc` | `~/.prime/agent/pstack-models.md`. Read it before any spawn. Each role value is `<selector> <thinking>`, such as `openai/gpt-5.5 xhigh`. A missing file or role line means the skill default, mapped with this table. |
 
@@ -52,7 +59,8 @@ Update with `git pull` in the checkout, then link any new skill folders.
 
 Follow its steps with these changes.
 
-- Detect. The detected models are the selectors `await rlm.find_models(query, limit=20)` returns. Query by family (`claude`, `gpt-5`, `grok`), because results cap at 20. Write a real model as `<selector> <thinking>`, such as `anthropic/claude-opus-5-5 xhigh`. The effort is the last token, so the budget step works as written.
+- Detect. Use `await rlm.find_models(query, limit=20)` to discover selectors. Start with the configured and default selectors, then family queries (`claude`, `gpt`, `grok`) for alternatives. Use targeted queries when a page fills; the result order does not rank models by age or quality. Require an exact selector match before offering a real model as available.
+- Budget and validate (replaces the slug-membership checks in steps 3(b), 3(c), and 4; keep the role table and user confirmation). Split each real role entry into `<selector> <thinking>`, such as `openai/gpt-5.5 xhigh`. Validate only the selector against discovery. Apply the selected budget to the separate `thinking` field: `unlimited` → `max`, `large` → `xhigh`, `medium` → `high`, `small` → `medium`. Preserve existing model selectors and panel lists; aliases remain unchanged. RLM accepts the effort tokens `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`, but discovery does not report which a model supports. Do not infer effort support or choose an older model from the discovery list. If model-specific support is unknown, say so at confirmation; handle a later rejection as described under Models. A combined value such as `openai/gpt-5.5 xhigh` is never compared with the selector-only detected set.
 - Defaults. Map each default slug with the rows above. `claude-opus-5-5-xhigh` is `anthropic/claude-opus-5-5 xhigh`. When no grok is detected, a grok default needs a choice. A model from another family keeps panels diverse.
 - Write. Write `~/.prime/agent/pstack-models.md` with no frontmatter, then the comment lines, the `# budget` line, and one line per role from step 5. Overwrite the whole file.
 
